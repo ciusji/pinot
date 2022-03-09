@@ -18,6 +18,7 @@
  */
 package org.apache.pinot.controller.api;
 
+import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Map;
@@ -33,6 +34,7 @@ import org.apache.pinot.spi.utils.CommonConstants;
 import org.apache.pinot.spi.utils.JsonUtils;
 import org.apache.pinot.spi.utils.builder.TableConfigBuilder;
 import org.apache.pinot.spi.utils.builder.TableNameBuilder;
+import org.apache.pinot.util.TestUtils;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -72,24 +74,29 @@ public class TableViewsTest {
         .build();
     ControllerTestUtils.getHelixResourceManager().addTable(tableConfig);
 
-    // Wait for external view get updated
-    long endTime = System.currentTimeMillis() + 10_000L;
-    while (System.currentTimeMillis() < endTime) {
-      Thread.sleep(100L);
-      TableViews.TableView tableView = getTableView(OFFLINE_TABLE_NAME, TableViews.EXTERNALVIEW, null);
-      if ((tableView._offline == null) || (tableView._offline.size() != 1)) {
-        continue;
+    long startTime = System.currentTimeMillis();
+    // Wait for external view to get updated
+    TestUtils.waitForCondition(aVoid -> {
+      try {
+        TableViews.TableView tableView = getTableView(OFFLINE_TABLE_NAME, TableViews.EXTERNALVIEW, null);
+        if ((tableView._offline == null) || (tableView._offline.size() != 1)) {
+          return false;
+        }
+        tableView = getTableView(HYBRID_TABLE_NAME, TableViews.EXTERNALVIEW, null);
+        if (tableView._offline == null) {
+          return false;
+        }
+        return (tableView._realtime != null) && (tableView._realtime.size()
+            == ControllerTestUtils.NUM_SERVER_INSTANCES);
+      } catch (IOException ioe) {
+        ioe.printStackTrace();
+        return false;
+      } catch (Exception e) {
+        throw new RuntimeException(e);
       }
-      tableView = getTableView(HYBRID_TABLE_NAME, TableViews.EXTERNALVIEW, null);
-      if (tableView._offline == null) {
-        continue;
-      }
-      if ((tableView._realtime == null) || (tableView._realtime.size() != ControllerTestUtils.NUM_SERVER_INSTANCES)) {
-        continue;
-      }
-      return;
-    }
-    Assert.fail("Failed to get external view updated");
+    }, 60_000L, "Failed to get external view updated");
+
+    System.out.println("Total wait time: " + (System.currentTimeMillis() - startTime));
   }
 
   @DataProvider(name = "viewProvider")

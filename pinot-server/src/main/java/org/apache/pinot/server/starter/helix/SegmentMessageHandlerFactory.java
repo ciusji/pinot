@@ -118,6 +118,7 @@ public class SegmentMessageHandlerFactory implements MessageHandlerFactory {
     public HelixTaskResult handleMessage()
         throws InterruptedException {
       HelixTaskResult helixTaskResult = new HelixTaskResult();
+      System.out.println(String.format("Handling message: %s", _message.toString()));
       _logger.info("Handling message: {}", _message);
       try {
         if (_segmentName.equals("")) {

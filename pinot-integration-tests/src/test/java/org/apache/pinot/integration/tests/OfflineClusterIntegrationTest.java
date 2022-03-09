@@ -499,7 +499,11 @@ public class OfflineClusterIntegrationTest extends BaseClusterIntegrationTestSet
         // Total docs should not change during reload, but num entries scanned
         // gets back to total number of documents as the index is removed.
         assertEquals(queryResponse.get("totalDocs").asLong(), numTotalDocs);
-        return queryResponse.get("numEntriesScannedInFilter").asLong() == numTotalDocs;
+
+        long actualTotalDocs = queryResponse.get("numEntriesScannedInFilter").asLong();
+        System.out.println("Response: " + queryResponse.toString());
+        System.out.println("Expected: " + numTotalDocs + ", actual: " + actualTotalDocs);
+        return actualTotalDocs == numTotalDocs;
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
@@ -769,6 +773,12 @@ public class OfflineClusterIntegrationTest extends BaseClusterIntegrationTestSet
     assertEquals(firstQueryResponse.get("totalDocs").asLong(), numTotalDocs);
     assertEquals(firstQueryResponse.get("numDocsScanned").asInt(), NUM_SEGMENTS);
 
+    // Enforce a sleep here since segment reload is async and there is another back-to-back reload below.
+    // Otherwise, there is no way to tell whether the 1st reload on server side is finished,
+    // which may hit the race condition that the 1st reload finishes after the 2nd reload is fully done.
+    // 10 seconds are still better than hitting race condition which will time out after 10 minutes.
+    Thread.sleep(10_000L);
+
     // Should be able to use the star-tree with an additional match-all predicate on another dimension
     firstQueryResponse = postQuery(TEST_STAR_TREE_QUERY_1 + " AND DaysSinceEpoch > 16070");
     assertEquals(firstQueryResponse.get("resultTable").get("rows").get(0).get(0).asInt(), firstQueryResult);
@@ -794,6 +804,9 @@ public class OfflineClusterIntegrationTest extends BaseClusterIntegrationTestSet
         assertEquals(queryResponse.get("resultTable").get("rows").get(0).get(0).asInt(), secondQueryResult);
         // Total docs should not change during reload
         assertEquals(queryResponse.get("totalDocs").asLong(), numTotalDocs);
+
+        System.out.println("Expected: " + NUM_SEGMENTS + ", actual: " + queryResponse.get("numDocsScanned").asInt());
+
         // With star-tree, 'numDocsScanned' should be the same as number of segments (1 per segment)
         return queryResponse.get("numDocsScanned").asInt() == NUM_SEGMENTS;
       } catch (Exception e) {
@@ -821,6 +834,12 @@ public class OfflineClusterIntegrationTest extends BaseClusterIntegrationTestSet
     assertEquals(secondQueryResponse.get("resultTable").get("rows").get(0).get(0).asInt(), secondQueryResult);
     assertEquals(secondQueryResponse.get("totalDocs").asLong(), numTotalDocs);
     assertEquals(secondQueryResponse.get("numDocsScanned").asInt(), NUM_SEGMENTS);
+
+    // Enforce a sleep here since segment reload is async and there is another back-to-back reload below.
+    // Otherwise, there is no way to tell whether the 1st reload on server side is finished,
+    // which may hit the race condition that the 1st reload finishes after the 2nd reload is fully done.
+    // 10 seconds are still better than hitting race condition which will time out after 10 minutes.
+    Thread.sleep(10_000L);
 
     // Remove the star-tree index config and trigger reload
     indexingConfig.setStarTreeIndexConfigs(null);

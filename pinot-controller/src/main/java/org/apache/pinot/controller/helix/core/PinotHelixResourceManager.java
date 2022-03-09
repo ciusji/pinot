@@ -63,7 +63,6 @@ import org.apache.helix.HelixManager;
 import org.apache.helix.InstanceType;
 import org.apache.helix.PropertyKey;
 import org.apache.helix.PropertyKey.Builder;
-import org.apache.helix.ZNRecord;
 import org.apache.helix.model.CurrentState;
 import org.apache.helix.model.ExternalView;
 import org.apache.helix.model.HelixConfigScope;
@@ -73,6 +72,7 @@ import org.apache.helix.model.LiveInstance;
 import org.apache.helix.model.ParticipantHistory;
 import org.apache.helix.model.builder.HelixConfigScopeBuilder;
 import org.apache.helix.store.zk.ZkHelixPropertyStore;
+import org.apache.helix.zookeeper.datamodel.ZNRecord;
 import org.apache.pinot.common.assignment.InstanceAssignmentConfigUtils;
 import org.apache.pinot.common.assignment.InstancePartitions;
 import org.apache.pinot.common.assignment.InstancePartitionsUtils;
@@ -2164,6 +2164,7 @@ public class PinotHelixResourceManager {
     int timeoutMs = -1;
     int numMessagesSent = messagingService.send(recipientCriteria, segmentReloadMessage, null, timeoutMs);
     if (numMessagesSent > 0) {
+      System.out.println(String.format("Sent %s reload messages for table: %s", numMessagesSent, tableNameWithType));
       LOGGER.info("Sent {} reload messages for table: {}", numMessagesSent, tableNameWithType);
     } else {
       LOGGER.warn("No reload message sent for table: {}", tableNameWithType);
@@ -2829,9 +2830,18 @@ public class PinotHelixResourceManager {
               //  realtime segment consumption,
               //  and realtime segment will mark itself as OFFLINE in ideal state.
               //  Issue: https://github.com/apache/pinot/issues/4653
-              if ((enableInstance && !offlineState.equals(state)) || (!enableInstance && offlineState.equals(state))) {
-                toggleSucceeded = false;
-                break;
+              if (enableInstance) {
+                // Instance enabled, every partition should not eventually be offline.
+                if (offlineState.equals(state)) {
+                  toggleSucceeded = false;
+                  break;
+                }
+              } else {
+                // Instance disabled, every partition should eventually be offline.
+                if (!offlineState.equals(state)) {
+                  toggleSucceeded = false;
+                  break;
+                }
               }
             }
             if (!toggleSucceeded) {
@@ -2850,12 +2860,13 @@ public class PinotHelixResourceManager {
       } catch (InterruptedException e) {
         LOGGER.warn("Got interrupted when sleeping for {}ms to wait until the current state matched for instance: {}",
             intervalWaitTimeMs, instanceName);
-        return PinotResourceManagerResponse
-            .failure("Got interrupted when waiting for instance to be " + (enableInstance ? "enabled" : "disabled"));
+        return PinotResourceManagerResponse.failure(
+            "Got interrupted when waiting for instance: " + instanceName + " to be " + (enableInstance ? "enabled"
+                : "disabled"));
       }
     }
     return PinotResourceManagerResponse
-        .failure("Instance " + (enableInstance ? "enable" : "disable") + " failed, timeout");
+        .failure("Instance: " + instanceName + (enableInstance ? " enable" : " disable") + " failed, timeout");
   }
 
   public RebalanceResult rebalanceTable(String tableNameWithType, Configuration rebalanceConfig)
@@ -3352,6 +3363,7 @@ public class PinotHelixResourceManager {
   public Set<String> getOnlineSegmentsFromExternalView(String tableNameWithType) {
     ExternalView externalView = getTableExternalView(tableNameWithType);
     if (externalView == null) {
+      LOGGER.warn(String.format("External view is null for table (%s)", tableNameWithType));
       return Collections.emptySet();
     }
     Map<String, Map<String, String>> segmentAssignment = externalView.getRecord().getMapFields();
