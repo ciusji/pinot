@@ -125,9 +125,11 @@ public class InstanceAssignmentTest {
     assertEquals(instancePartitions.getInstances(1, 2),
         Arrays.asList(SERVER_INSTANCE_ID_PREFIX + 0, SERVER_INSTANCE_ID_PREFIX + 6));
 
-    // ===== Test against the cases when the existing instancePartitions isn't null. =====
+    // ===== Test against the cases when the existing instancePartitions isn't null,
+    //       and minimizeDataMovement is set to true. =====
     // Put the existing instancePartitions as the parameter to the InstanceAssignmentDriver.
     // The returned instance partition should be the same as the last computed one.
+    tableConfig.getValidationConfig().setMinimizeDataMovement(true);
 
     // Instances should be assigned to 3 replica-groups with a round-robin fashion, each with 3 instances, then these 3
     // instances should be assigned to 2 partitions, each with 2 instances
@@ -226,7 +228,7 @@ public class InstanceAssignmentTest {
     // Assign to 2 replica-groups so that each replica-group is assigned to one pool
     int numReplicaGroups = numPools;
     InstanceReplicaGroupPartitionConfig replicaPartitionConfig =
-        new InstanceReplicaGroupPartitionConfig(true, 0, numReplicaGroups, 0, 0, 0);
+        new InstanceReplicaGroupPartitionConfig(true, 0, numReplicaGroups, 0, 0, 0, false);
     TableConfig tableConfig = new TableConfigBuilder(TableType.OFFLINE).setTableName(RAW_TABLE_NAME)
         .setInstanceAssignmentConfigMap(Collections.singletonMap(InstancePartitionsType.OFFLINE,
             new InstanceAssignmentConfig(tagPoolConfig, null, replicaPartitionConfig))).build();
@@ -311,7 +313,7 @@ public class InstanceAssignmentTest {
 
     // Assign instances from 2 pools to 3 replica-groups
     numReplicaGroups = numPools;
-    replicaPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, numReplicaGroups, 0, 0, 0);
+    replicaPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, numReplicaGroups, 0, 0, 0, false);
     tableConfig.setInstanceAssignmentConfigMap(Collections.singletonMap(InstancePartitionsType.OFFLINE,
         new InstanceAssignmentConfig(tagPoolConfig, null, replicaPartitionConfig)));
 
@@ -335,11 +337,12 @@ public class InstanceAssignmentTest {
     assertEquals(instancePartitions.getInstances(0, 2),
         Arrays.asList(SERVER_INSTANCE_ID_PREFIX + 1, SERVER_INSTANCE_ID_PREFIX + 4));
 
-    // ===== Test against the cases when the existing instancePartitions isn't null. =====
+    // ===== Test against the cases when the existing instancePartitions isn't null,
+    //       and minimizeDataMovement is set to true. =====
     // Reset the number of replica groups to 2 and pools to 2.
     numReplicaGroups = 2;
     numPools = 2;
-    replicaPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, numReplicaGroups, 0, 0, 0);
+    replicaPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, numReplicaGroups, 0, 0, 0, true);
     tagPoolConfig = new InstanceTagPoolConfig(OFFLINE_TAG, true, numPools, null);
     tableConfig.setInstanceAssignmentConfigMap(Collections.singletonMap(InstancePartitionsType.OFFLINE,
         new InstanceAssignmentConfig(tagPoolConfig, null, replicaPartitionConfig)));
@@ -416,7 +419,7 @@ public class InstanceAssignmentTest {
 
     // Assign instances from 2 pools to 3 replica-groups
     numReplicaGroups = 3;
-    replicaPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, numReplicaGroups, 0, 0, 0);
+    replicaPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, numReplicaGroups, 0, 0, 0, true);
     tableConfig.setInstanceAssignmentConfigMap(Collections.singletonMap(InstancePartitionsType.OFFLINE,
         new InstanceAssignmentConfig(tagPoolConfig, null, replicaPartitionConfig)));
 
@@ -495,7 +498,7 @@ public class InstanceAssignmentTest {
 
     // Reduce number of replica groups from 3 to 2.
     numReplicaGroups = 2;
-    replicaPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, numReplicaGroups, 0, 0, 0);
+    replicaPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, numReplicaGroups, 0, 0, 0, true);
     tableConfig.setInstanceAssignmentConfigMap(Collections.singletonMap(InstancePartitionsType.OFFLINE,
         new InstanceAssignmentConfig(tagPoolConfig, null, replicaPartitionConfig)));
 
@@ -552,7 +555,7 @@ public class InstanceAssignmentTest {
     //     pool 0: [ i10, i12, i2, i4,  i0,  i1 ]
     //     pool 1: [  i6,  i7, i8, i9, i11, i13 ]
     // There is one more empty position for each of the replica groups.
-    // Append the newly added instances (ie. i12 and i13) to the tails.
+    // Append the newly added instances (i.e. i12 and i13) to the tails.
     // Thus, the new assignment will become:
     //     pool 0: [ i0, i1, i2,  i4, i10, i12 ]
     //     pool 1: [ i8, i6, i9, i11,  i7, i13 ]
@@ -567,7 +570,7 @@ public class InstanceAssignmentTest {
         .asList(SERVER_INSTANCE_ID_PREFIX + 8, SERVER_INSTANCE_ID_PREFIX + 6, SERVER_INSTANCE_ID_PREFIX + 9,
             SERVER_INSTANCE_ID_PREFIX + 11, SERVER_INSTANCE_ID_PREFIX + 7, SERVER_INSTANCE_ID_PREFIX + 13));
 
-    // Remove one instances from each of the pools, ie. i2 and i8.
+    // Remove one instances from each of the pools, i.e. i2 and i8.
     instanceConfigs.remove(6);
     instanceConfigs.remove(2);
 
@@ -583,7 +586,7 @@ public class InstanceAssignmentTest {
     //     pool 0: [ i12, i4,  i0, i1, i10 ]
     //     pool 1: [ i7,  i9, i11, i13, i6 ]
     // Since i2 and i8 got removed from the pools,
-    // the tail instances (ie. i12 and 13) will be used to fill their vacant position.
+    // the tail instances (i.e. i12 and 13) will be used to fill their vacant position.
     // Thus, the new assignment will become:
     //     pool 0: [ i0, i1, i12,  i4, i10 ]
     //     pool 1: [ i13, i6, i9, i11,  i7 ]
@@ -622,7 +625,7 @@ public class InstanceAssignmentTest {
 
     InstanceTagPoolConfig tagPoolConfig = new InstanceTagPoolConfig(OFFLINE_TAG, false, 0, null);
     InstanceReplicaGroupPartitionConfig replicaGroupPartitionConfig =
-        new InstanceReplicaGroupPartitionConfig(false, 0, 0, 0, 0, 0);
+        new InstanceReplicaGroupPartitionConfig(false, 0, 0, 0, 0, 0, false);
     tableConfig.setInstanceAssignmentConfigMap(Collections.singletonMap(InstancePartitionsType.OFFLINE,
         new InstanceAssignmentConfig(tagPoolConfig, null, replicaGroupPartitionConfig)));
 
@@ -707,7 +710,7 @@ public class InstanceAssignmentTest {
     }
 
     tagPoolConfig = new InstanceTagPoolConfig(OFFLINE_TAG, true, 0, null);
-    replicaGroupPartitionConfig = new InstanceReplicaGroupPartitionConfig(false, 6, 0, 0, 0, 0);
+    replicaGroupPartitionConfig = new InstanceReplicaGroupPartitionConfig(false, 6, 0, 0, 0, 0, false);
     tableConfig.setInstanceAssignmentConfigMap(Collections.singletonMap(InstancePartitionsType.OFFLINE,
         new InstanceAssignmentConfig(tagPoolConfig, null, replicaGroupPartitionConfig)));
 
@@ -720,7 +723,7 @@ public class InstanceAssignmentTest {
     }
 
     // Enable replica-group
-    replicaGroupPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, 0, 0, 0, 0);
+    replicaGroupPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, 0, 0, 0, 0, false);
     tableConfig.setInstanceAssignmentConfigMap(Collections.singletonMap(InstancePartitionsType.OFFLINE,
         new InstanceAssignmentConfig(tagPoolConfig, null, replicaGroupPartitionConfig)));
 
@@ -732,7 +735,7 @@ public class InstanceAssignmentTest {
       assertEquals(e.getMessage(), "Number of replica-groups must be positive");
     }
 
-    replicaGroupPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, 11, 0, 0, 0);
+    replicaGroupPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, 11, 0, 0, 0, false);
     tableConfig.setInstanceAssignmentConfigMap(Collections.singletonMap(InstancePartitionsType.OFFLINE,
         new InstanceAssignmentConfig(tagPoolConfig, null, replicaGroupPartitionConfig)));
 
@@ -745,7 +748,7 @@ public class InstanceAssignmentTest {
           "Not enough qualified instances from pool: 0, cannot select 6 replica-groups from 5 instances");
     }
 
-    replicaGroupPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, 3, 3, 0, 0);
+    replicaGroupPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, 3, 3, 0, 0, false);
     tableConfig.setInstanceAssignmentConfigMap(Collections.singletonMap(InstancePartitionsType.OFFLINE,
         new InstanceAssignmentConfig(tagPoolConfig, null, replicaGroupPartitionConfig)));
 
@@ -757,7 +760,7 @@ public class InstanceAssignmentTest {
       assertEquals(e.getMessage(), "Not enough qualified instances from pool: 0 (5 in the pool, asked for 6)");
     }
 
-    replicaGroupPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, 3, 2, 0, 3);
+    replicaGroupPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, 3, 2, 0, 3, false);
     tableConfig.setInstanceAssignmentConfigMap(Collections.singletonMap(InstancePartitionsType.OFFLINE,
         new InstanceAssignmentConfig(tagPoolConfig, null, replicaGroupPartitionConfig)));
 
@@ -770,7 +773,7 @@ public class InstanceAssignmentTest {
           "Number of instances per partition: 3 must be smaller or equal to number of instances per replica-group: 2");
     }
 
-    replicaGroupPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, 3, 2, 0, 0);
+    replicaGroupPartitionConfig = new InstanceReplicaGroupPartitionConfig(true, 0, 3, 2, 0, 0, false);
     tableConfig.setInstanceAssignmentConfigMap(Collections.singletonMap(InstancePartitionsType.OFFLINE,
         new InstanceAssignmentConfig(tagPoolConfig, null, replicaGroupPartitionConfig)));
 

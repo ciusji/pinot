@@ -73,9 +73,9 @@ public class InstanceAssignmentDriver {
       poolToInstanceConfigsMap = constraintApplier.applyConstraint(poolToInstanceConfigsMap);
     }
 
-    InstanceReplicaGroupPartitionSelector replicaPartitionSelector = InstanceReplicaGroupPartitionSelectorFactory
-        .generateInstanceReplicaGroupPartitionSelector(assignmentConfig.getReplicaGroupPartitionConfig(),
-            tableNameWithType, existingInstancePartitions);
+    InstanceReplicaGroupPartitionSelector replicaPartitionSelector =
+        new InstanceReplicaGroupPartitionSelector(assignmentConfig.getReplicaGroupPartitionConfig(), tableNameWithType,
+            existingInstancePartitions);
     InstancePartitions instancePartitions = new InstancePartitions(
         instancePartitionsType.getInstancePartitionsName(TableNameBuilder.extractRawTableName(tableNameWithType)));
     replicaPartitionSelector.selectInstances(poolToInstanceConfigsMap, instancePartitions);
